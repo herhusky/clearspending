@@ -1,1070 +1,1070 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <link rel="icon" type="image/png" href="favicon.png">
-    <title>ГосЗатраты Визуализация</title>
-
-    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' />
-    <script src='https://api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.js'></script>
-    <link href='https://api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.css' rel='stylesheet' />
-    <link href="open-iconic/font/css/open-iconic.css" rel="stylesheet">
-    <link rel="stylesheet" href="main.css"/>
-</head>
-<body>
-    <div id="map"></div>
-    <div id="yearLabel"></div>
-
-    <div id="info" style="display:none">
-        <div>
-            Визуализация распределения бюджетных средств на основе данных с <a href="http://clearspending.ru" target="_blank">ГосЗатраты</a>.<br />
-            В выборке участвуют только контракты за <strong>2013</strong> год с суммой равной или большей <strong>500 000 000</strong> рублей,<br />
-            <small>также есть выбрка от <a target="_blank" href="http://clearspending.artzub.com/?file=2013.gte100x10in6.json">100 000 000 рублей</a></small><br />
-            а также только те, у контрагентов которых удалось определить геопозицию.<br />
-            <br />
-            Некоторые замечания:
-            <ul>
-                <li>Размер частиц зависит от суммы контракта.</li>
-                <li>Цвет частицы определяется на основе или типа услуги или уровня бюджета.</li>
-                <li>Частица появляется у покупателя (она собственно символизирует денежную массу) в момент соответствующий дате протокола.<br />
-                    Затем она перемещается к поставщику (символизируется оплата услуги или выделение средств)<br />
-                    точкой для данного события выбрана дата подписания контракта.
-                </li>
-                <li>При на ведении на метку Поставщика/Покупателя отображаются его связи с контрактами.</li>
-                <li>Слой меток как и другие слои можно отключить с соответствующем меню справа.<br />
-                    Метки группируются. При клике по кругу с числом которое отображает количество сгруппированных меток<br />
-                    Произойдет приближение к локации которая описана этими метками.<br />
-                    Так же можно воспользоваться определением вашего местоположения и сфокусироваться, например, на вашем городе.
-                </li>
-                <li>Слой тепловой диаграммы демонстрирует концентрацию объектов участвующих в сделках.<br />
-                    Чем больше объектов в одной области тем сначала синее, затем зеленее, а потом вообще красной становится окраска зоны.<br />
-                    В расчете участвуют только те метки (а именно упоминание геопозиции объекта) которые отображаюттся в сфокусированной области.<br />
-                    Поэтому при фокусе на конкретном объекте зона под ним имеет красный окрас.
-                </li>
-                <li>
-                    В диаграмме категорий слева вверху, отображается в порядке убывания категории по выбранному признаку. Кол-во в квадратике,<br />
-                    показывает кол-во контрактов на дату на которой сфокусирован ползунок в нижней части экрана.<br />
-                </li>
-                <li>
-                    Нижний график показывает распределение суммы контрактов в день.<br />
-                    Бегунок показывает какая дата в текущий момент обрабатывается.<br />
-                    Одно перемещение = 1 секунде = 1 дню.
-                </li>
-            </ul>
-            <br />
-            Данные по координатам объектов взяты с <a href="http://maps.yandex.ru" target="_blank">Яндекс.Карты</a>
-            <hr/>
-            Для работы с API ГосЗатрат написана <a href="https://github.com/artzub/clearspending/blob/master/js/clearspending.js">библиотека</a> на js которую можно использовать как на стороне клиента,
-            так и на стороне сервера в программах для <a href="http://nodejs.org">nodejs</a>.<br />
-            <br />
-            Полный исходный код проекта, в том числе скрипты для nodejs<br />
-            для выборки и обработки данных и для поиска координат объектов<br />
-            размещены в открытом доступе в мое репозитории <a href="https://github.com/artzub/clearspending">ClearSpending на GitHub</a>.<br />
-            <br />
-            По всем вопросам или замечаниям в работе ресурса <a href="https://github.com/artzub/clearspending/issues/new">пишите здесь</a>.
-        </div>
-        <hr>
-        Powered by <a href="http://d3js.org" target="_blank">D3js</a>, <a href="http://mapbox.com" target="_blank">MapBox</a>, <a href="http://github.com/artzub/blackhole.js" target="_blank">BlackHole.js</a><br/>
-        Icons from the <a href="https://useiconic.com/open" target="_blank">OPEN ICONIC</a><br/>
-        © 2014 <a href="http://artzub.com" target="_blank">Artem Zubkov (ArtZub)</a>, <a target="_blank" href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>.<br />
-    </div>
-
-    <div id="tooltipParentTemplate" style="display: none">
-        <h1>{{name}}</h1>
-        <hr/>
-        <ul class="info-fields">
-            <li><span>Участвует как: </span> <span> {{role}}</span></li>
-            <li><span>Кол-во контрактов: </span> <span> {{count}}</span></li>
-            <li><span>Сумма (руб.): </span> <span> {{sum}}</span></li>
-            <li><span>Адресс: </span> <span> {{address}}</span></li>
-        </ul>
-        <hr/>
-        Связи:
-        <ul>{{relations}}</ul>
-    </div>
-
-    <div id="patternSetting" style="display: none">
-        <input type="checkbox" id="{{id}}"/><label for="{{id}}">{{label}}</label>
-    </div>
-
-    <div id="tooltipChildTemplate" style="display: none">
-        <div class="childInfo">
-            <h1>{{name}}</h1>
-            <hr/>
-            <ul class="info-fields">
-                <li><span>Покупатель: </span> <span> {{customer}}</span></li>
-                <li><span>Продавец: </span> <span> {{supplier}}</span></li>
-                <li><span>Сумма (руб.): </span> <span> {{sum}}</span></li>
-                <li><span>Кол-во: </span> <span> {{count}}</span></li>
-                <li><span>Категория: </span> <span> {{category}}</span></li>
-                <li><span>Дата протокола: </span> <span> {{pd}}</span></li>
-                <li><span>Дата заключения: </span> <span> {{sd}}</span></li>
-                <li><span>Уровень бюджета: </span> <span> {{budget}}</span></li>
-            </ul>
-        </div>
-    </div>
-
-    <div id="tooltipCategoryTemplate" style="display: none">
-        <div class="childInfo">
-            <h1>{{name}}</h1>
-            <hr/>
-            <ul class="info-fields">
-                <li><span>Сумма (руб.): </span> <span> {{sum}}</span></li>
-                <li><span>Кол-во: </span> <span> {{count}}</span></li>
-            </ul>
-        </div>
-    </div>
-
-    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v0.0.2/Leaflet.fullscreen.min.js'></script>
-    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v0.0.2/leaflet.fullscreen.css' rel='stylesheet' />
-
-    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-heat/v0.1.0/leaflet-heat.js'></script>
-
-    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/leaflet.markercluster.js'></script>
-    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/MarkerCluster.css' rel='stylesheet' />
-    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/MarkerCluster.Default.css' rel='stylesheet' />
-
-    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.24.0/L.Control.Locate.js'></script>
-    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.24.0/L.Control.Locate.css' rel='stylesheet' />
-    <!--[if lt IE 9]>
-    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.21.0/L.Control.Locate.ie.css' rel='stylesheet' />
-    <![endif]-->
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
-    <script src="//cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.js"></script>
-    <script src="//cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.legend.js"></script>
-    <script src="//cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.progressBarBasedOnBrushAndArea.js"></script>
-    <script src="//cdn.rawgit.com/artzub/d3tooltipjs/master/tooltip.js"></script>
-    <script src="js/L.BlackHoleLayer.js"></script>
-    <script src="js/L.Control.ActionConsole.js"></script>
-    <script src="js/L.Control.ResetZoom.js"></script>
-    <script src="js/L.Control.Settings.js"></script>
-    <script src="js/L.CategoriesLayer.js"></script>
-    <script src="js/L.Control.SearchCleint.js"></script>
-    <script src="js/L.HistoryBarLayer.js"></script>
-    <!--<script src="//rawgit.com/artzub/blackhole.js/master/js/blackhole.js"></script>-->
-
-    <script>
-        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-            (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-        ga('create', 'UA-28343295-12', 'artzub.com');
-        ga('send', 'pageview');
-
-        !function() {
-            var info = d3.select('#info').html()
-                , tooltipParentTemplate = d3.select('#tooltipParentTemplate').html()
-                , tooltipChildTemplate = d3.select('#tooltipChildTemplate').html()
-                , tooltipCategoryTemplate = d3.select('#tooltipCategoryTemplate').html()
-                , yearLabel = d3.select("#yearLabel")
-                , df = d3.time.format('%d.%m.%Y')
-                , moneyFormat = d3.format(",.2f")
-                , patternSetting = d3.select("#patternSetting").html()
-                ;
-
-            //, 'artzub.hp68ld67'
-
-            var file = '2013.gte500x10in6.json';
-            !function() {
-                var params = {};
-                location.search.replace('?', '')
-                    .split('&').forEach(function(d) {
-                        var pair = d.split('=');
-                        params[pair[0]] = pair[1];
-                    })
-                ;
-                file = params['file'] || file;
-            }();
-
-            var map = L.mapbox.map('map')
-                    , visLayer = L.blackHoleLayer()
-                    ;
-
-            var openStreetMap = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            map.setView([54, 86], 3).whenReady(handleReady);
-
-            function onError(err){
-                console.error(err);
-            }
-
-            var mainLayer = L.mapbox.tileLayer('./artzub.hp68ld67.json')
-                    .on('ready', function() {
-                        map.removeLayer(openStreetMap);
-                        map.addLayer(mainLayer);
-                    })
-                    .on('error', onError)
-            ;
-
-
-            function fixInfo() {
-                map.infoControl._info = {};
-                map.infoControl.addInfo(info);
-            }
-
-            function handleReady() {
-
-                map.removeControl(map.zoomControl);
-
-                map.zoomControl = L.control.zoom({
-                    position: 'bottomright',
-                    zoomInTitle: 'Приблизить',
-                    zoomOutTitle: 'Отдалить'
-                }).addTo(map);
-
-                L.control.resetZoom({
-                    position: 'bottomright',
-                    strings : {
-                        reset : 'Переключить вид'
-                    }
-                }).addTo(map);
-
-                map.on('moveend', fixInfo)
-                    .on('layeradd', fixInfo)
-                    .on('layerremove', fixInfo);
-
-                //window.hashContracts = {};
-                var hashSuppliers = {}
-                    , hashCustomers = {}
-                    ;
-
-                var data = []
-                    , stepDate = 24 * 60 * 60 * 1000
-                    , sizes = d3.scale.linear().range([4, 400])
-                ;
-
-                function calcSum(a, b) {
-                    return a + b;
-                }
-
-                function calcRelation(obj) {
-                    return obj.key + ' (' + moneyFormat(obj.value) + ' руб.)';
-                }
-
-                function printRelations(rel) {
-                    return rel && rel.entries ? "<li>" + rel.entries().map(calcRelation).join('</li><li>') + "</li>" : "";
-                }
-
-                function applyParentTemplate(d) {
-                    return tooltipParentTemplate
-                        .replace('{{name}}', d.name)
-                        .replace('{{role}}', d instanceof Supplier ? 'Поставщик' : 'Клиент')
-                        .replace('{{address}}', d.address)
-                        .replace('{{count}}', d.contracts)
-                        .replace('{{sum}}', moneyFormat(d.sum))
-                        .replace('{{relations}}', printRelations(d.relations))
-                    ;
-                }
-
-                function applyChildTemplate(d) {
-                    return tooltipChildTemplate
-                            .replace('{{name}}', d.product[0].name)
-                            .replace('{{customer}}', hashCustomers[d.cs].name)
-                            .replace('{{supplier}}', hashSuppliers[d.s].name)
-                            .replace('{{sum}}', moneyFormat(+d))
-                            .replace('{{count}}',
-                                d.product[0].quantity
-                                ? (d.product[0].quantity + ' ' + (d.product[0].OKEI ? ' (' + d.product[0].OKEI.name + ')' : ''))
-                                : 1
-                            )
-                            .replace('{{category}}', d.product[0].OKDP.name)
-                            .replace('{{pd}}', df(d.pd))
-                            .replace('{{sd}}', df(d.sd))
-                            .replace('{{budget}}', d.b.name)
-                            ;
-                }
-
-                function applyCategoryTemplate(d) {
-
-                    var values = d3.map(d.values).values();
-
-                    return tooltipCategoryTemplate
-                            .replace('{{name}}', d.name)
-                            .replace('{{sum}}',
-                                moneyFormat(d3.sum(values)))
-                            .replace('{{count}}', values.length)
-                            ;
-                }
-
-                function makeParent(that, d) {
-                    that._id = d._id;
-                    that.name = d.name;
-                    that.latlng = new L.LatLng(d.latlng[0], d.latlng[1]);
-                    that.address = d.address;
-
-                    that.sum = 0;
-                    that.contracts = 0;
-                    that.relations = d3.map({});
-
-                    that.x = {
-                        valueOf: function () {
-                            var t = visLayer._map.latLngToLayerPoint(that.latlng);
-                            return t.x;
-                        }
-                    };
-
-                    that.y = {
-                        valueOf: function () {
-                            var t = visLayer._map.latLngToLayerPoint(that.latlng);
-                            return t.y;
-                        }
-                    };
-
-                    return that;
-                }
-
-
-                function Supplier(d) {
-                    var that = hashSuppliers[d._id] = this;
-
-                    return makeParent(that, d);
-                }
-
-                function Customer(d) {
-                    var that = hashCustomers[d._id] = this;
-
-                    return makeParent(that, d);
-                }
-
-                function parseData(d) {
-
-                    d.contracts.forEach(function(k, index) {
-
-                        if (!d.suppliers[k.s].latlng
-                            || !d.suppliers[k.s].latlng.length
-                            || !d.customers[k.c]
-                            || !d.customers[k.c].latlng.length)
-                            return;
-
-                        var s
-                            , cs
-                            , b
-                            , signDate = +(new Date(k.sd))
-                            , protocolDate = k.prd ? +(new Date(k.prd)) : signDate - stepDate
-                            ;
-
-                        s = hashSuppliers[d.suppliers[k.s]._id] || new Supplier(d.suppliers[k.s]);
-                        cs = hashCustomers[d.customers[k.c]._id] || new Customer(d.customers[k.c]);
-                        b = d.budgetLevels[k.b];
-
-                        k.price = parseFloat(k.p);
-
-                        function price() {
-                            return k.price;
-                        }
-
-                        cs.sum += k.price;
-                        cs.contracts++;
-
-                        s.sum += k.price;
-                        s.contracts++;
-
-                        !s.relations.has(cs.name)
-                            && s.relations.set(cs.name, 0);
-                        s.relations.set(cs.name, s.relations.get(cs.name) + k.price);
-
-                        !cs.relations.has(s.name)
-                            && cs.relations.set(s.name, 0);
-                        cs.relations.set(s.name, cs.relations.get(s.name) + k.price);
-
-                        data.push({
-                            _id: index,
-                            date: protocolDate,
-                            product : k.pt,
-                            parent : cs,
-                            s : s._id,
-                            cs : cs._id,
-                            pd : new Date(protocolDate),
-                            sd : new Date(signDate),
-                            b : b,
-                            type: 0,
-                            label : '[' + moneyFormat(k.price) + '] ' + k.pt[0].name.substr(0, 50),
-                            valueOf: price
-                        });
-
-                        data.push({
-                            _id: index,
-                            date: signDate,
-                            product : k.pt,
-                            parent : s,
-                            s : s._id,
-                            cs : cs._id,
-                            pd : new Date(protocolDate),
-                            sd : new Date(signDate),
-                            b : b,
-                            type: 1,
-                            label : '[' + moneyFormat(k.price) + '] ' + k.pt[0].name.substr(0, 50),
-                            valueOf: price
-                        });
-                    });
-
-                    data.sort(function(a, b) {
-                        return d3.ascending(a.date, b.date);
-                    });
-                }
-
-                d3.json(file, function(err, rawData) {
-
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-
-                    parseData(rawData);
-
-                    sizes.domain(d3.extent(data));
-
-                    var actions = L.control.actionConsole({
-                        keepOpen: true,
-                        position: 'topright',
-                        strings: {
-                            play: 'Запусить',
-                            stop: 'Остановить',
-                            pause: 'Приостановить',
-                            repeat: 'Начать занова'
-                        }
-                    }).addTo(map);
-
-                    visLayer.onHide = function () {
-                        actions.bar.hide();
-                    };
-
-                    visLayer.onShow = function () {
-                        actions.bar.show();
-                    };
-
-                    actions.buttons.pause.hide();
-                    actions.buttons.stop.hide();
-
-                    function stop() {
-                        actions.buttons.play.hide();
-                        actions.buttons.pause.hide();
-                        actions.buttons.stop.hide();
-                        actions.buttons.repeat.show();
-                    }
-
-                    var markers = new L.MarkerClusterGroup({
-                            maxZoom: 19
-                        })
-                        , heat = L.heatLayer([], {
-                            max: 1,
-                            radius: 25,
-                            blur: 15,
-                            gradient: {0.4: 'rgba(0, 0, 255, 1)', 0.65: 'rgba(0, 255, 0, 1)', 1: 'rgba(255, 0, 0, 1)'},
-                            maxZoom: 19
-                        })
-                        , search = L.control.searchClient({title: 'Поиск контрагентов'})
-                        , legend = L.categories()
-                        , hbar = L.historybar({position : 'bottomleft'})
-                        ;
-
-                    /*search.bar.style({
-                        position : 'absolute',
-                        top: '-6px',
-                        left: '290px'
-                    });*/
-
-                    var tooltip = d3.helper.tooltip()
-                        .padding(16)
-                        .text(function(d) {
-                            var result = "";
-                            if (d.type) {
-                                result = applyChildTemplate(d.nodeValue);
-                            }
-                            else if(d.type === 0) {
-                                result = applyParentTemplate(d.nodeValue);
-                            }
-                            else {
-                                result = applyCategoryTemplate(d);
-                            }
-                            return result;
-                        });
-
-
-                    var panes = d3.select(map.getPanes().overlayPane);
-
-                    map.on('layeradd', function(e) {
-                        d3.selectAll(panes.node().children).datum(function() {
-                            var t = d3.select(this);
-                            return t.classed('leaflet-heatmap-layer')
-                                ? 0
-                                : t.classed('leaflet-blackhole-layer')
-                                ? 2
-                                : 1
-                            ;
-                        }).sort();
-                    });
-
-                    L.control.layers({
-                        'Тёманая карта': mainLayer,
-                        'Светлая карта': L.mapbox.tileLayer('artzub.i1e741if'),
-                        'OpenStreetMap': openStreetMap,
-                        'Гуманитарная карта': L.tileLayer('http://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-                            maxZoom: 19,
-                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">Участники OpenStreetMap</a>. Tiles courtesy of <a href="http://hot.openstreetmap.org/" target="_blank">Humanitarian OpenStreetMap Team</a>'
-                        })
-                    }, {
-                        'Тепловая диаграмма': heat.addTo(map),
-                        'Метки': markers.addTo(map),
-                        'Динамическая визуализация': visLayer.addTo(map),
-                        'Легеда': legend.addTo(map),
-                        'Прогресс бар' : hbar.addTo(map)
-                    }).addTo(map);
-
-                    L.control.fullscreen({position: 'bottomright'}).addTo(map);
-                    L.control.locate({
-                        drawCircle: false,
-                        position: 'bottomright',
-                        strings: {
-                            title: "Мое место положенние",
-                            popup: "Вы в {distance} {unit} от этой точки",
-                            outsideMapBoundsMsg: "Вы находится вне границ карте"
-                        }
-                    }).addTo(map);
-                    var settings = L.control.settings({position: "topright"}).addTo(map);
-
-                    var leftDate = new Date('2000-12-31')
-                        , rightDate = new Date('2006-12-31')
-                        , hashDate = d3.set(data.map(function(d) { return d.date; })).values()
-                        , maxDate = new Date(+hashDate[hashDate.length - 1])
-                        , leftHashBound = 0
-                        , parentMarker = {}
-                        , curPos = 0
-                        , categoryType = 0
-                        , dateFormat = d3.time.format("<strong>%d</strong>.<strong>%m</strong>.<strong>%Y</strong>")
-                        ;
-
-                    visLayer._bh.setting.showTooltipOnContract = true;
-                    visLayer._bh.setting.showTooltipOnClient = true;
-                    visLayer._bh.setting.showTooltipOnLegend = true;
-
-                    hbar.bar.hide();
-                    hbar.hbar.maxLabelValue('Максимальная сумма по подписанным контрактам в день: ');
-                    hbar.hbar.maxLabelEvent('Максимьное кол-во контрактов в день: ');
-
-                    function recreate(leftDate, rightDate) {
-
-                        var ld = leftDate ? +leftDate : 0
-                            , rd = rightDate ? +rightDate : Infinity
-                            ;
-
-                        hbar.hbar.size(map._size.x - 50, 88)
-                                .on('getAxisXValue', function (d) {
-                                    return new Date(+d.key);
-                                })
-                                .on('getAxisYValue', function (d) {
-                                    return +d.values.sum;
-                                })
-                                .on('getAxisYEvent', function (d) {
-                                    return +d.values.count;
-                                })
-                                .data(d3.nest()
-                                        .key(function (d) {
-                                            return d.date
-                                        })
-                                        .rollup(function (leaves) {
-                                            return {
-                                                count : leaves.filter(function(d) {
-                                                    return !!d.type;
-                                                }).length,
-                                                sum : d3.sum(leaves, function (d) {
-                                                    return d.type ? +d : 0;
-                                                })
-                                            };
-                                        })
-                                        .entries(data.filter(function (d) {
-                                            return d.date >= ld && d.date <= rd;
-                                        })))
-                                .inc(new Date(+hashDate[0]), new Date(+hashDate[0] + stepDate))
-                        ;
-                    }
-
-                    legend.legend
-                            .on('mousemove', tooltip.mousemove)
-                            .on('mouseover', function(d) {
-                                visLayer._bh.setting.showTooltipOnLegend
-                                    && tooltip.mouseover(d);
-                                visLayer._bh.selectCategory(d);
-                            })
-                            .on('mouseout', function() {
-                                tooltip.mouseout();
-                                visLayer._bh.selectCategory(null);
-                            })
-                            .on('click', function(d) {
-                                visLayer._bh.frozenCategory(d);
-                            });
-
-                    function legendResize() {
-                        var size = [map._size.x, map._size.y];
-
-                        tooltip.spaceWidth(size[0])
-                            .spaceHeight(size[1]);
-
-                        hbar.hbar.size(size[0] - 50, 88);
-
-                        legend.legend.size(250, size[1])
-                                .categories(visLayer._bh.categories());
-                    }
-
-                    map.on('resize', legendResize)
-                       .on('viewreset', legendResize);
-
-
-                    !function(){
-                        function chChange(d) {
-                            if (d.prop === 'childKill') {
-                                d.ns.childLife = this.checked ? 255 : 0;
-                            }
-                            else
-                                d.ns[d.prop] = this.checked;
-                        }
-
-                        function initCheck(d) {
-                            if (d.prop === 'childKill') {
-                                this.checked = d.ns.childLife != 0;
-                            }
-                            else
-                                this.checked = d.ns[d.prop];
-                            return null;
-                        }
-
-                        settings.settingContainer
-                                .append('ul')
-                                .selectAll('li')
-                                .data([
-                                    {
-                                        label : 'Частицы как плазма',
-                                        prop : 'drawAsPlasma',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Свечение',
-                                        prop : 'blendingLighter',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Рисовать подписи частиц',
-                                        prop : 'drawChildLabel',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Рисовать частицы',
-                                        prop : 'drawChild',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Показать все связи',
-                                        prop : 'drawEdge',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Рисовать траекторию',
-                                        prop : 'drawTrack',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Удалять старые частицы',
-                                        prop : 'childKill',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Показывать подсказки на контрактах',
-                                        prop : 'showTooltipOnContract',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Показывать подсказки на клинтах/поставщиках',
-                                        prop : 'showTooltipOnClient',
-                                        ns : visLayer._bh.setting
-                                    },
-                                    {
-                                        label : 'Показывать подсказки на елементе легенды',
-                                        prop : 'showTooltipOnLegend',
-                                        ns : visLayer._bh.setting
-                                    },
-                                ])
-                                .enter()
-                                .append('li')
-                                .html(function (d) {
-                                    return patternSetting
-                                        .replace('{{label}}', d.label)
-                                        .replace(/\{\{id\}\}/g, d.prop + "_ch");
-                                })
-                                .selectAll('input')
-                                .datum(function() { return this.parentNode.__data__; })
-                                .attr("checked", initCheck)
-                                .on('change', chChange)
-                        ;
-                    }();
-
-
-                    visLayer._bh
-                            .on('getGroupBy', function (d) {
-                                return d.date;
-                            })
-                            /*.on('getParent', function (d) {
-                                var cont = rawData.contracts[d._id];
-                                return d.type ? rawData.suppliers[cont.s] : rawData.customers[cont.c];
-                            })*/
-                            .on('getParentKey', function (d) {
-                                return d._id;
-                            })
-                            .on('getChildKey', function (d) {
-                                return rawData.contracts[d._id]._id;
-                            })
-                            .on('getCategoryKey', function (d) {
-                                return getCatKey(d);
-                            })
-                            .on('getCategoryName', function (d) {
-                                return getCatName(d);
-                            })
-                            .on('getParentLabel', function (d) {
-                                return d.name;
-                            })
-                            .on('getChildLabel', function (d) {
-                                return d.nodeValue.label;
-                            })
-                            .on('calcRightBound', function (l) {
-                                l = +l;
-
-                                var nl = l + stepDate;
-
-                                if (visLayer._bh.setting.skipEmptyDate) {
-
-                                    var ln = hashDate.length
-                                        , cur
-                                        ;
-                                    for(var i = leftHashBound; i < ln; i++) {
-                                        cur = +hashDate[i];
-                                        if (nl < cur) {
-                                            nl = (cur + nl) / 2;
-                                            leftHashBound = i;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                return nl;
-                            })
-                            .on('getVisibleByStep', function (d) {
-                                return true;
-                            })
-                            .on('getCreateNearParent', function (d) {
-                                return true; //d.parentNode.nodeValue instanceof Customer;
-                            })
-                            .on('getParentRadius', function (d) {
-                                return 1;
-                            })
-                            .on('getChildRadius', function(d) {
-                                return sizes(+d);
-                            })
-                            .on('getValue', function(d) {
-                                return +d;
-                            })
-                            .on('getParentPosition', function (d) {
-                                return [d.x, d.y];
-                            })
-                            .on('getParentFixed', function (d) {
-                                return true;
-                            })
-                            .on('finished', function () {
-                                stop();
-                            })
-                            .on('stopped', function () {
-                                stop();
-                            })
-                            .on('starting', function () {
-                            })
-                            .on('started', function () {
-                                legendResize();
-
-                                legend.bar.show();
-                                hbar.bar.show();
-                                yearLabel.html('');
-                                visLayer._reset();
-                                yearLabel.classed('parsing', false);
-                                waitParse.hide();
-                                actions.buttons.play.hide();
-                                actions.buttons.pause.show();
-                                actions.buttons.stop.show();
-                                actions.buttons.repeat.hide();
-                            })
-                            .on('processing', function (arr, l, r) {
-                                legend.legend.update();
-
-                                var rb = new Date(+r)
-                                    ;
-
-                                if (rb.getFullYear() > rightDate.getFullYear() && maxDate.getFullYear() >= rb.getFullYear()) {
-
-                                    leftDate = new Date(+rightDate);
-                                    rightDate.setFullYear(rightDate.getFullYear() + 1);
-
-                                    recreate(leftDate, rightDate);
-                                }
-
-                                hbar.hbar.inc(new Date(+l), rb);
-
-                                yearLabel.html(dateFormat(new Date(l)));
-                                setTimeout(setMarkers(arr), 10);
-                            })
-                            .on('parsing', function() {
-                                yearLabel.html([
-                                    "Анализ... <strong>",
-                                    curPos++,
-                                    "</strong>",
-                                    " из ",
-                                    data.length
-                                ].join(''));
-                            })
-                            //.on('processed', prints)
-                            .on('mouseovernode', function(d) {
-                                if (d.type) {
-                                    legend.legend
-                                            .selectCategory(d.category)
-                                    ;
-                                    visLayer._bh.setting.showTooltipOnContract
-                                        && tooltip.mouseover(d);
-                                }
-                            })
-                            .on('mouseoutnode', function() {
-                                legend.legend
-                                    .selectCategory(null)
-                                ;
-                                tooltip.mouseout(null);
-                            })
-                            .on('mousemove', tooltip.mousemove)
-                            .sort(null)
-                    ;
-
-                    function setMarkers(arr) {
-                        return function() {
-                            arr.forEach(function (d) {
-                                var tp = d.parentNode.nodeValue;
-
-                                if (!parentMarker[tp._id]) {
-                                    var marker = parentMarker[tp._id] = L.marker(tp.latlng, {
-                                        icon: L.mapbox.marker.icon({
-                                            'marker-symbol': tp instanceof Supplier ? 'commercial' : 'warehouse' ,
-                                            'marker-color': '222234'
-                                        })
-                                        //, title: tp.name + "\n" + tp.address
-                                    });
-
-                                    marker.__parentNode = d.parentNode;
-                                    marker.on('mouseover', onMouseOverToMarker)
-                                        .on('mousemove', onMouseMoveOnMarker)
-                                        .on('mouseout', onMouseOutFromMarker)
-                                        .bindPopup(applyParentTemplate(tp))
-                                    ;
-                                    markers.addLayer(marker);
-                                }
-
-                                heat.addLatLng(tp.latlng);
-                            });
-                        }
-                    }
-
-                    function onMouseMoveOnMarker(e) {
-                        tooltip.mousemove(this.__parentNode, 0, 0, e.originalEvent);
-                    }
-
-                    function onMouseOverToMarker(e) {
-                        visLayer._bh.setting.showTooltipOnClient
-                            && tooltip.mouseover(this.__parentNode, 0, 0, e.originalEvent);
-                        visLayer._bh.selectNode(this.__parentNode);
-                    }
-
-                    function onMouseOutFromMarker(e) {
-                        tooltip.mouseout();
-                        visLayer._bh.selectNode(null);
-                    }
-
-                    var waitParse = actions.bar.append('a')
-                        .attr('class', 'wait')
-                        .on('click', function() {
-                            if (d3.event) {
-                                d3.event.stopPropagation();
-                                d3.event.preventDefault();
-                            }
-                        });
-
-                    waitParse.hide = actions.buttons.play.hide.bind(waitParse);
-                    waitParse.show = actions.buttons.play.show.bind(waitParse);
-                    waitParse.hide();
-
-                    actions.buttons.play.on('click', function () {
-                        if (visLayer._bh.IsPaused()) {
-                            actions.buttons.pause.show();
-                            actions.buttons.play.hide();
-                            visLayer._bh.resume();
-                        }
-                        else {
-                            actions.buttons.repeat.on('click')();
-                        }
-                    });
-
-                    actions.buttons.repeat.on('click', function () {
-
-                        leftDate = new Date('2000-12-31');
-                        rightDate = new Date('2006-12-31');
-                        recreate(null, rightDate);
-
-                        curPos = 0;
-                        leftHashBound = 0;
-                        yearLabel.classed('parsing', true);
-                        waitParse.show();
-                        legend.bar.hide();
-                        actions.buttons.repeat.hide();
-                        actions.buttons.play.hide();
-                        parentMarker = {};
-                        markers.clearLayers();
-                        heat.setLatLngs([]);
-                        visLayer.start(data);
-                    });
-
-                    actions.buttons.stop.on('click', function () {
-                        visLayer._bh.stop();
-                    });
-
-                    actions.buttons.pause.on('click', function () {
-                        actions.buttons.pause.hide();
-                        actions.buttons.play.show();
-                        visLayer._bh.pause();
-                    });
-
-                    actions.buttons.play.on('click')();
-
-                    d3.select(window).on("focus", function() {
-                        if (window.hasOwnProperty("needPlayShow")) {
-                            if (window.needPlayShow)
-                                actions.buttons.play.on('click')();
-                            delete window.needPlayShow;
-                        }
-                    });
-
-                    d3.select(window).on("blur", function() {
-                        if (window.hasOwnProperty("needPlayShow"))
-                            return;
-
-                        window.needPlayShow = visLayer._bh.IsRun() && !visLayer._bh.IsPaused();
-                        if (window.needPlayShow)
-                            actions.buttons.pause.on('click')();
-                    });
-
-                    legend.bar.insert('br', ':first-child');
-
-                    /IE/.test(window.navigator.userAgent)
-                        && legend.bar.insert('br', ':first-child');
-
-                    legend.bar.insert('div', ':first-child')
-                            .attr('class', 'leaflet-bar leaflet-control select-cat-bar')
-                            .each(function(div) {
-                                div = d3.select(this).append('div')
-                                    .attr('class', 'leaflet-bar-part leaflet-bar-part-single')
-                                    ;
-                                div.append('label')
-                                    .text('Окраска частиц на основе: ')
-                                    .attr('for', 'select_cat')
-                                ;
-                                var sel = div.append('select')
-                                    .attr('id', 'select_cat');
-                                sel.selectAll('option')
-                                    .data([0, 1])
-                                    .enter()
-                                    .append('option')
-                                    .attr('value', function(d) { return d; })
-                                    .text(function(d) { return d ? 'Уровня бюджета' : 'Типа услуги';})
-                                    .attr('selected', function(d) { return !d ? "selected" : null; })
-                                ;
-                                sel.on('change', function() {
-                                    categoryType = this.options[this.selectedIndex].__data__;
-                                    changeCategories();
-                                });
-                            })
-                    ;
-
-                    function getCatName(d) {
-                        return (categoryType ? d.b : d.product[0].OKDP).name;
-                    }
-
-                    function getCatKey(d) {
-                        return (categoryType ? d.b : d.product[0].OKDP).code;
-                    }
-
-
-                    function changeCategories() {
-                        var categories = d3.map({})
-                            , catMax = 0
-                            ;
-
-                        visLayer._bh.setting.categoryColors = categoryType ? d3.scale.category20c() : d3.scale.category20();
-
-                        function Category(c, name) {
-                            var cat = categories.get(c);
-                            if (!cat) {
-                                cat = {
-                                    key: c,
-                                    name : name || c,
-                                    all: 0,
-                                    currents: {},
-                                    values: {},
-                                    color: d3.rgb(visLayer._bh.setting.categoryColors(c)),
-                                    now: []
-                                };
-                                categories.set(c, cat);
-                            }
-                            return cat;
-                        }
-
-                        visLayer._bh.selectCategory(null);
-                        legend.legend.selectCategory(null);
-
-                        var run = visLayer._bh.IsRun() && !visLayer._bh.IsPaused();
-                        if (run)
-                            visLayer._bh.pause();
-
-                        visLayer._bh.children().values().forEach(function(d) {
-                            var n = d
-                                , org = d.nodeValue
-                                , j
-                                ;
-
-                            n.category = Category(getCatKey(org), getCatName(org));
-
-                            n.color = n.category.color.toString();
-                            n.d3color = d3.rgb(n.color);
-                            n.flashColor =  d3.rgb(n.d3color.brighter().brighter());
-
-                            n.category.all++;
-
-                            n.category.currents[d.date] = (n.category.currents[org.date] || 0);
-                            n.category.currents[d.date]++;
-                            n.category.values['_' + n.id] = +org;
-
-                            j = categories.values().reduce((function(id) { return function(a, b) {
-                                return (a || 0) + (b.currents[id] || 0);
-                            }})(org.date), null);
-                            catMax = j > catMax ? j : catMax;
-
-                            if (org.date < +hashDate[leftHashBound])
-                                n.category.now.indexOf(org._id) < 0
-                                    && n.category.now.push(org._id);
-                        });
-
-                        visLayer._bh.categories(categories);
-                        visLayer._bh.categoryMax(catMax);
-                        legend.legend.categories(categories);
-
-                        if(run)
-                            visLayer._bh.resume();
-                    }
-                });
-            }
-        }();
-    </script>
-</body>
-</html>
+<! DOCTYPE html>
+<Html>
+<Head>
+    <Meta charset = "utf-8">
+    <Link rel = "icon" type = "image / png" href = "favicon.png">
+    <Title> GosZatraty Visualization </ title>
+
+    <Meta name = 'viewport' content = 'width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable = no' />
+    <Script src = 'https: //api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.js'> </ script>
+    <Link href = 'https: //api.tiles.mapbox.com/mapbox.js/v1.6.2/mapbox.css' rel = 'stylesheet' />
+    <Link href = "open-iconic / font / css / open-iconic.css" rel = "stylesheet">
+    <Link rel = "stylesheet" href = "main.css" />
+</ Head>
+<Body>
+    <Div id = "map"> </ div>
+    <Div id = "yearLabel"> </ div>
+
+    <Div id = "info" style = "display: none">
+        <Div>
+            Visualization of budget allocation on the basis of data from the <a href="http://clearspending.ru" target="_blank"> GosZatraty </a>. <br />
+            The sample involved only contracts for the <strong> 2013 </ strong> year with the amount equal to or greater than <strong> 500000000 </ strong> rubles, <br />
+            <Small> also has vybrka by <a target="_blank" href="http://clearspending.artzub.com/?file=2013.gte100x10in6.json"> 100 million rubles </a> </ small> < br />
+            and only those counterparties which it was possible to determine geopozitsiyu. <br />
+            <br />
+            Some notes:
+            <Ul>
+                <Li> The particle size depends on the amount of the contract. </ Li>
+                <Li> the particle color is determined based on the type or level of service or the budget. </ Li>
+                <Li> The particle appears at the buyer (it actually represents a lot of money) at the time of the relevant date of the protocol. <br />
+                    Then she moves to the supplier (symbolized by the payment services or funding) <br />
+                    point for the event selected the date of signing the contract.
+                </ Li>
+                <Li> If on a label run by the Supplier / Buyer displaying its connection with the contract. </ Li>
+                <Li> tags as a layer or other layers can be turned off with the corresponding menu on the right. <br />
+                    Tags are grouped. When you click on a circle with a number that indicates the number of grouped labels <br />
+                    There will be an approximation to the location described these tags. <br />
+                    You can also use your location and focus, for example, in your city.
+                </ Li>
+                <Li> A layer of heat diagram shows the concentration of the objects involved in the transaction. <br />
+                    The more objects in one area of ​​the first blue, then green, and then all becomes red coloring area. <br />
+                    The calculation involves only those tags (ie references geopozitsii object) that otobrazhayuttsya focused in the area. <br />
+                    Therefore, the focus on a particular object underneath the zone has a red color.
+                </ Li>
+                <Li>
+                    In the diagram at the top left of categories, displayed in descending order according to the selected category basis. Number in the box, <br />
+                    shows the number of contracts as of the date on which focuses the slider at the bottom of the screen. <br />
+                </ Li>
+                <Li>
+                    The bottom graph shows the distribution of the sum of contracts per day. <br />
+                    Slider shows what data is currently being processed. <br />
+                    One movement = 1 second = 1 day.
+                </ Li>
+            </ Ul>
+            <br />
+            The data on the coordinates of objects taken from <a href="http://maps.yandex.ru" target="_blank"> Yandex </a>
+            <Hr />
+            To work with the API GosZatrat written <a href="https://github.com/artzub/clearspending/blob/master/js/clearspending.js">библиотека</a> js to which can be used both on the client side,
+            and server-side programs for <a href="http://nodejs.org"> nodejs </a>. <br />
+            <br />
+            The complete source code for the project, including scripts for nodejs <br />
+            for sampling and data processing, and to find the coordinates of objects <br />
+            placed in open access repositories in my <a href="https://github.com/artzub/clearspending"> ClearSpending on GitHub </a>. <br />
+            <br />
+            For any questions or comments in the resource <a href="https://github.com/artzub/clearspending/issues/new"> write here </a>.
+        </ Div>
+        <Hr>
+        Powered by <a href="http://d3js.org" target="_blank"> D3js </a>, <a href="http://mapbox.com" target="_blank"> MapBox </ a >, <a href="http://github.com/artzub/blackhole.js" target="_blank"> BlackHole.js </a> <br/>
+        Icons from the <a href="https://useiconic.com/open" target="_blank"> OPEN ICONIC </a> <br/>
+        © 2014 <a href="http://artzub.com" target="_blank"> Artem Zubkov (ArtZub) </a>, <a target = "_ blank" href = "http://creativecommons.org/licenses /by/3.0">CC BY 3.0 </a>. <br />
+    </ Div>
+
+    <Div id = "tooltipParentTemplate" style = "display: none">
+        <H1> {{name}} </ h1>
+        <Hr />
+        <Ul class = "info-fields">
+            <Li> <span> Participates like: </ span> <span> {{role}} </ span> </ li>
+            <Li> <span> Number of contracts: </ span> <span> {{count}} </ span> </ li>
+            <Li> <span> sum (RUR.): </ Span> <span> {{sum}} </ span> </ li>
+            <Li> <span> Address: </ span> <span> {{address}} </ span> </ li>
+        </ Ul>
+        <Hr />
+        Communication:
+        <Ul> {{relations}} </ ul>
+    </ Div>
+
+    <Div id = "patternSetting" style = "display: none">
+        <Input type = "checkbox" id = "{{id}}" /> <label for = "{{id}}"> {{label}} </ label>
+    </ Div>
+
+    <Div id = "tooltipChildTemplate" style = "display: none">
+        <Div class = "childInfo">
+            <H1> {{name}} </ h1>
+            <Hr />
+            <Ul class = "info-fields">
+                <Li> <span> buyer: </ span> <span> {{customer}} </ span> </ li>
+                <Li> <span> Sold: </ span> <span> {{supplier}} </ span> </ li>
+                <Li> <span> sum (RUR.): </ Span> <span> {{sum}} </ span> </ li>
+                <Li> <span> Number: </ span> <span> {{count}} </ span> </ li>
+                <Li> <span> Category: </ span> <span> {{category}} </ span> </ li>
+                <Li> <span> Date of report: </ span> <span> {{pd}} </ span> </ li>
+                <Li> <span> to enter into Date: </ span> <span> {{sd}} </ span> </ li>
+                <Li> <span> Budget Level: </ span> <span> {{budget}} </ span> </ li>
+            </ Ul>
+        </ Div>
+    </ Div>
+
+    <Div id = "tooltipCategoryTemplate" style = "display: none">
+        <Div class = "childInfo">
+            <H1> {{name}} </ h1>
+            <Hr />
+            <Ul class = "info-fields">
+                <Li> <span> sum (RUR.): </ Span> <span> {{sum}} </ span> </ li>
+                <Li> <span> Number: </ span> <span> {{count}} </ span> </ li>
+            </ Ul>
+        </ Div>
+    </ Div>
+
+    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v0.0.2/Leaflet.fullscreen.min.js'></script>
+    <Link href = '// api.tiles.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v0.0.2/leaflet.fullscreen.css' rel = 'stylesheet' />
+
+    <Script src = '// api.tiles.mapbox.com/mapbox.js/plugins/leaflet-heat/v0.1.0/leaflet-heat.js'> </ script>
+
+    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/leaflet.markercluster.js'></script>
+    <Link href = '// api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/MarkerCluster.css' rel = 'stylesheet' />
+    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-markercluster/v0.4.0/MarkerCluster.Default.css' rel = 'stylesheet' />
+
+    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.24.0/L.Control.Locate.js'></script>
+    <Link href = '// api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.24.0/L.Control.Locate.css' rel = 'stylesheet' />
+    <-! [If lt IE 9]>
+    <link href='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-locatecontrol/v0.21.0/L.Control.Locate.ie.css' rel = 'stylesheet' />
+    <[Endif] -!>
+
+    <Script src = "// cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"> </ script>
+    <Script src = "// cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.js"> </ script>
+    <Script src = "// cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.legend.js"> </ script>
+    <script src="//cdn.rawgit.com/artzub/blackhole.js/v0.0.1/js/blackhole.progressBarBasedOnBrushAndArea.js"></script>
+    <Script src = "// cdn.rawgit.com/artzub/d3tooltipjs/master/tooltip.js"> </ script>
+    <Script src = "js / L.BlackHoleLayer.js"> </ script>
+    <Script src = "js / L.Control.ActionConsole.js"> </ script>
+    <Script src = "js / L.Control.ResetZoom.js"> </ script>
+    <Script src = "js / L.Control.Settings.js"> </ script>
+    <Script src = "js / L.CategoriesLayer.js"> </ script>
+    <Script src = "js / L.Control.SearchCleint.js"> </ script>
+    <Script src = "js / L.HistoryBarLayer.js"> </ script>
+    <-! <Script src = "// rawgit.com/artzub/blackhole.js/master/js/blackhole.js"> </ script> ->
+
+    <Script>
+        (Function (i, s, o, g, r, a, m) {i [ 'GoogleAnalyticsObject'] = r; i [r] = i [r] || function () {
+            . (I [r] .q = i [r] .q || []) push (arguments)}, i [r] .l = 1 * new Date (); a = s.createElement (o),
+                m = s.getElementsByTagName (o) [0]; a.async = 1; a.src = g; m.parentNode.insertBefore (a, m)
+        }) (Window, document, 'script', '// www.google-analytics.com/analytics.js','ga');
+
+        ga ( 'create', 'UA-28343295-12', 'artzub.com');
+        ga ( 'send', 'pageview');
+
+        ! Function () {
+            var info = d3.select ( '# info'). html ()
+                , TooltipParentTemplate = d3.select ( '# tooltipParentTemplate'). Html ()
+                , TooltipChildTemplate = d3.select ( '# tooltipChildTemplate'). Html ()
+                , TooltipCategoryTemplate = d3.select ( '# tooltipCategoryTemplate'). Html ()
+                , YearLabel = d3.select ( "# yearLabel")
+                , Df = d3.time.format ( '% d.% M.% Y')
+                , MoneyFormat = d3.format ( ",. 2f")
+                , PatternSetting = d3.select ( "# patternSetting"). Html ()
+                ;
+
+            //, 'Artzub.hp68ld67'
+
+            var file = '2013.gte500x10in6.json';
+            ! Function () {
+                var params = {};
+                location.search.replace ( '?', '')
+                    .split ( '&'). forEach (function (d) {
+                        var pair = d.split ( '=');
+                        params [pair [0]] = pair [1];
+                    })
+                ;
+                file = params [ 'file'] || file;
+            } ();
+
+            var map = L.mapbox.map ( 'map')
+                    , VisLayer = L.blackHoleLayer ()
+                    ;
+
+            var openStreetMap = L.tileLayer ( 'http: // {s} .tile.osm.org / {z} / {x} / {y} .png', {
+                attribution: '& copy; <a href="http://osm.org/copyright"> OpenStreetMap </a> contributors'
+            .}) AddTo (map);
+            map.setView ([54, 86], 3) .whenReady (handleReady);
+
+            function onError (err) {
+                console.error (err);
+            }
+
+            var mainLayer = L.mapbox.tileLayer ( './ artzub.hp68ld67.json')
+                    .on ( 'ready', function () {
+                        map.removeLayer (openStreetMap);
+                        map.addLayer (mainLayer);
+                    })
+                    .on ( 'error', onError)
+            ;
+
+
+            function fixInfo () {
+                map.infoControl._info = {};
+                map.infoControl.addInfo (info);
+            }
+
+            function handleReady () {
+
+                map.removeControl (map.zoomControl);
+
+                map.zoomControl = L.control.zoom ({
+                    position: 'bottomright',
+                    zoomInTitle: 'Zoom'
+                    zoomOutTitle: 'Zoom Out'
+                .}) AddTo (map);
+
+                L.control.resetZoom ({
+                    position: 'bottomright',
+                    strings: {
+                        reset: 'Switch view'
+                    }
+                .}) AddTo (map);
+
+                map.on ( 'moveend', fixInfo)
+                    .on ( 'layeradd', fixInfo)
+                    .on ( 'layerremove', fixInfo);
+
+                //window.hashContracts = {};
+                var hashSuppliers = {}
+                    , HashCustomers = {}
+                    ;
+
+                var data = []
+                    , StepDate = 24 * 60 * 60 * 1000
+                    , Sizes = d3.scale.linear (). Range ([4, 400])
+                ;
+
+                function calcSum (a, b) {
+                    return a + b;
+                }
+
+                function calcRelation (obj) {
+                    return obj.key + '(' + moneyFormat (obj.value) + 'rub.)';
+                }
+
+                function printRelations (rel) {
+                    return rel && rel.entries? . "<Li>" + rel.entries () map (calcRelation) .join ( '</ li> <li>') + "</ li>": "";
+                }
+
+                function applyParentTemplate (d) {
+                    return tooltipParentTemplate
+                        .replace ( '{{name}}', d.name)
+                        .replace ( '{{role}}', d instanceof Supplier 'Supplier': 'client')
+                        .replace ( '{{address}}', d.address)
+                        .replace ( '{{count}}', d.contracts)
+                        .replace ( '{{sum}}', moneyFormat (d.sum))
+                        .replace ( '{{relations}}', printRelations (d.relations))
+                    ;
+                }
+
+                function applyChildTemplate (d) {
+                    return tooltipChildTemplate
+                            .replace ( '{{name}}', d.product [0] .name)
+                            .replace ( '{{customer}}', hashCustomers [d.cs] .name)
+                            .replace ( '{{supplier}}', hashSuppliers [d.s] .name)
+                            .replace ( '{{sum}}', moneyFormat (+ d))
+                            .replace ( '{{count}}',
+                                d.product [0] .quantity
+                                ? (D.product [0] .quantity + '' + (d.product [0] .OKEI? '(' + D.product [0] .OKEI.name + ')': ''))
+                                : 1
+                            )
+                            .replace ( '{{category}}', d.product [0] .OKDP.name)
+                            .replace ( '{{pd}}', df (d.pd))
+                            .replace ( '{{sd}}', df (d.sd))
+                            .replace ( '{{budget}}', d.b.name)
+                            ;
+                }
+
+                function applyCategoryTemplate (d) {
+
+                    var values ​​= d3.map (d.values) .values ​​();
+
+                    return tooltipCategoryTemplate
+                            .replace ( '{{name}}', d.name)
+                            .replace ( '{{sum}}',
+                                moneyFormat (d3.sum (values)))
+                            .replace ( '{{count}}', values.length)
+                            ;
+                }
+
+                function makeParent (that, d) {
+                    that._id = d._id;
+                    that.name = d.name;
+                    that.latlng = new L.LatLng (d.latlng [0], d.latlng [1]);
+                    that.address = d.address;
+
+                    that.sum = 0;
+                    that.contracts = 0;
+                    that.relations = d3.map ({});
+
+                    that.x = {
+                        valueOf: function () {
+                            var t = visLayer._map.latLngToLayerPoint (that.latlng);
+                            return t.x;
+                        }
+                    };
+
+                    that.y = {
+                        valueOf: function () {
+                            var t = visLayer._map.latLngToLayerPoint (that.latlng);
+                            return t.y;
+                        }
+                    };
+
+                    return that;
+                }
+
+
+                function Supplier (d) {
+                    var that = hashSuppliers [d._id] = this;
+
+                    return makeParent (that, d);
+                }
+
+                function Customer (d) {
+                    var that = hashCustomers [d._id] = this;
+
+                    return makeParent (that, d);
+                }
+
+                function parseData (d) {
+
+                    d.contracts.forEach (function (k, index) {
+
+                        if (! d.suppliers [k.s] .latlng
+                            || ! D.suppliers [k.s] .latlng.length
+                            || ! D.customers [k.c]
+                            || ! D.customers [k.c] .latlng.length)
+                            return;
+
+                        var s
+                            , cs
+                            , b
+                            , SignDate = + (new Date (k.sd))
+                            , ProtocolDate = k.prd? + (New Date (k.prd)): signDate - stepDate
+                            ;
+
+                        s = hashSuppliers [d.suppliers [k.s] ._ id] || new Supplier (d.suppliers [k.s]);
+                        cs = hashCustomers [d.customers [k.c] ._ id] || new Customer (d.customers [k.c]);
+                        b = d.budgetLevels [k.b];
+
+                        k.price = parseFloat (k.p);
+
+                        function price () {
+                            return k.price;
+                        }
+
+                        cs.sum + = k.price;
+                        cs.contracts ++;
+
+                        s.sum + = k.price;
+                        s.contracts ++;
+
+                        ! S.relations.has (cs.name)
+                            && S.relations.set (cs.name, 0);
+                        s.relations.set (cs.name, s.relations.get (cs.name) + k.price);
+
+                        ! Cs.relations.has (s.name)
+                            && Cs.relations.set (s.name, 0);
+                        cs.relations.set (s.name, cs.relations.get (s.name) + k.price);
+
+                        data.push ({
+                            _id: index,
+                            date: protocolDate,
+                            product: k.pt,
+                            parent: cs,
+                            s: s._id,
+                            cs: cs._id,
+                            pd: new Date (protocolDate),
+                            sd: new Date (signDate),
+                            b: b,
+                            type: 0
+                            label: '[' + moneyFormat (k.price) + ']' + k.pt [0] .name.substr (0, 50)
+                            valueOf: price
+                        });
+
+                        data.push ({
+                            _id: index,
+                            date: signDate,
+                            product: k.pt,
+                            parent: s,
+                            s: s._id,
+                            cs: cs._id,
+                            pd: new Date (protocolDate),
+                            sd: new Date (signDate),
+                            b: b,
+                            type: 1,
+                            label: '[' + moneyFormat (k.price) + ']' + k.pt [0] .name.substr (0, 50)
+                            valueOf: price
+                        });
+                    });
+
+                    data.sort (function (a, b) {
+                        return d3.ascending (a.date, b.date);
+                    });
+                }
+
+                d3.json (file, function (err, rawData) {
+
+                    if (err) {
+                        console.error (err);
+                        return;
+                    }
+
+                    parseData (rawData);
+
+                    sizes.domain (d3.extent (data));
+
+                    var actions = L.control.actionConsole ({
+                        keepOpen: true,
+                        position: 'topright',
+                        strings: {
+                            play: 'Zapusit'
+                            stop: 'Stop'
+                            pause: 'Pause'
+                            repeat: 'start again'
+                        }
+                    .}) AddTo (map);
+
+                    visLayer.onHide = function () {
+                        actions.bar.hide ();
+                    };
+
+                    visLayer.onShow = function () {
+                        actions.bar.show ();
+                    };
+
+                    actions.buttons.pause.hide ();
+                    actions.buttons.stop.hide ();
+
+                    function stop () {
+                        actions.buttons.play.hide ();
+                        actions.buttons.pause.hide ();
+                        actions.buttons.stop.hide ();
+                        actions.buttons.repeat.show ();
+                    }
+
+                    var markers = new L.MarkerClusterGroup ({
+                            maxZoom: 19
+                        })
+                        , Heat = L.heatLayer ([], {
+                            max: 1
+                            radius: 25,
+                            blur: 15,
+                            gradient: 0.4 {: 'rgba (0, 0, 255, 1)', 0.65: 'rgba (0, 255, 0, 1),' 1: 'rgba (255, 0, 0, 1)},
+                            maxZoom: 19
+                        })
+                        , Search = L.control.searchClient ({title: 'Search for contractors'})
+                        , Legend = L.categories ()
+                        , Hbar = L.historybar ({position: 'bottomleft'})
+                        ;
+
+                    /*search.bar.style ({
+                        position: 'absolute',
+                        top: '-6px',
+                        left: '290px'
+                    }) * /
+
+                    var tooltip = d3.helper.tooltip ()
+                        .padding (16)
+                        .text (function (d) {
+                            var result = "";
+                            if (d.type) {
+                                result = applyChildTemplate (d.nodeValue);
+                            }
+                            else if (d.type === 0) {
+                                result = applyParentTemplate (d.nodeValue);
+                            }
+                            else {
+                                result = applyCategoryTemplate (d);
+                            }
+                            return result;
+                        });
+
+
+                    var panes = d3.select (map.getPanes () overlayPane.);
+
+                    map.on ( 'layeradd', function (e) {
+                        d3.selectAll (panes.node (). children) .datum (function () {
+                            var t = d3.select (this);
+                            return t.classed ( 'leaflet-heatmap-layer')
+                                ? 0
+                                : T.classed ( 'leaflet-blackhole-layer')
+                                ? 2
+                                : 1
+                            ;
+                        .}) Sort ();
+                    });
+
+                    L.control.layers ({
+                        'Tёmanaya card': mainLayer,
+                        'Light Card': L.mapbox.tileLayer ( 'artzub.i1e741if'),
+                        'OpenStreetMap': openStreetMap,
+                        'Humanitarian card': L.tileLayer ( 'http: // {s} .tile.openstreetmap.fr / hot / {z} / {x} / {y} .png', {
+                            maxZoom: 19,
+                            attribution: '& copy; <a href="https://www.openstreetmap.org/copyright" target="_blank"> members OpenStreetMap </a>. Tiles courtesy of <a href="http://hot.openstreetmap.org/" target="_blank"> Humanitarian OpenStreetMap Team </a> '
+                        })
+                    }, {
+                        'Thermal chart': heat.addTo (map),
+                        'Tags': markers.addTo (map),
+                        'Dynamic Imaging': visLayer.addTo (map),
+                        'Legeda': legend.addTo (map),
+                        'Progress Bar': hbar.addTo (map)
+                    .}) AddTo (map);
+
+                    L.control.fullscreen ({position: 'bottomright'}) addTo (map);.
+                    L.control.locate ({
+                        drawCircle: false,
+                        position: 'bottomright',
+                        strings: {
+                            title: "My position is the position of"
+                            popup: "You are in the {distance} {unit} of this point"
+                            outsideMapBoundsMsg: "You are outside the boundaries of the map"
+                        }
+                    .}) AddTo (map);
+                    var settings = L.control.settings ({position: "topright"}) addTo (map);.
+
+                    var leftDate = new Date ( '2000-12-31')
+                        , RightDate = new Date ( '2006-12-31')
+                        , HashDate = d3.set (data.map (function (d) {return d.date;})) values ​​().
+                        , MaxDate = new Date (+ hashDate [hashDate.length - 1])
+                        , LeftHashBound = 0
+                        , ParentMarker = {}
+                        , CurPos = 0
+                        , CategoryType = 0
+                        , DateFormat = d3.time.format ( "<strong>% d </ strong>. <Strong>% m </ strong>. <Strong>% Y </ strong>")
+                        ;
+
+                    visLayer._bh.setting.showTooltipOnContract = true;
+                    visLayer._bh.setting.showTooltipOnClient = true;
+                    visLayer._bh.setting.showTooltipOnLegend = true;
+
+                    hbar.bar.hide ();
+                    hbar.hbar.maxLabelValue ( 'Maximum amount of the contracts signed in the day:');
+                    hbar.hbar.maxLabelEvent ( 'Maksimnoe number of contracts per day:');
+
+                    function recreate (leftDate, rightDate) {
+
+                        var ld = leftDate? + LeftDate: 0
+                            , Rd = rightDate? + RightDate: Infinity
+                            ;
+
+                        hbar.hbar.size (map._size.x - 50, 88)
+                                .on ( 'getAxisXValue', function (d) {
+                                    return new Date (+ d.key);
+                                })
+                                .on ( 'getAxisYValue', function (d) {
+                                    return + d.values.sum;
+                                })
+                                .on ( 'getAxisYEvent', function (d) {
+                                    return + d.values.count;
+                                })
+                                .data (d3.nest ()
+                                        .key (function (d) {
+                                            return d.date
+                                        })
+                                        .rollup (function (leaves) {
+                                            return {
+                                                count: leaves.filter (function (d) {
+                                                    return !! d.type;
+                                                }). Length,
+                                                sum: d3.sum (leaves, function (d) {
+                                                    return d.type? + D: 0;
+                                                })
+                                            };
+                                        })
+                                        .entries (data.filter (function (d) {
+                                            return d.date> = ld && d.date <= rd;
+                                        })))
+                                .inc (new Date (+ hashDate [0]), new Date (+ hashDate [0] + stepDate))
+                        ;
+                    }
+
+                    legend.legend
+                            .on ( 'mousemove', tooltip.mousemove)
+                            .on ( 'mouseover', function (d) {
+                                visLayer._bh.setting.showTooltipOnLegend
+                                    && Tooltip.mouseover (d);
+                                visLayer._bh.selectCategory (d);
+                            })
+                            .on ( 'mouseout', function () {
+                                tooltip.mouseout ();
+                                visLayer._bh.selectCategory (null);
+                            })
+                            .on ( 'click', function (d) {
+                                visLayer._bh.frozenCategory (d);
+                            });
+
+                    function legendResize () {
+                        var size = [map._size.x, map._size.y];
+
+                        tooltip.spaceWidth (size [0])
+                            .spaceHeight (size [1]);
+
+                        hbar.hbar.size (size [0] - 50, 88);
+
+                        legend.legend.size (250, size [1])
+                                .categories (visLayer._bh.categories ());
+                    }
+
+                    map.on ( 'resize', legendResize)
+                       .on ( 'viewreset', legendResize);
+
+
+                    ! Function () {
+                        function chChange (d) {
+                            if (d.prop === 'childKill') {
+                                d.ns.childLife = this.checked? 255: 0;
+                            }
+                            else
+                                d.ns [d.prop] = this.checked;
+                        }
+
+                        function initCheck (d) {
+                            if (d.prop === 'childKill') {
+                                this.checked = d.ns.childLife = 0!;
+                            }
+                            else
+                                this.checked = d.ns [d.prop];
+                            return null;
+                        }
+
+                        settings.settingContainer
+                                .append ( 'ul')
+                                .selectAll ( 'li')
+                                .data ([
+                                    {
+                                        label: 'particles as plasma'
+                                        prop: 'drawAsPlasma',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Glow'
+                                        prop: 'blendingLighter',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Draw the signature of the particles'
+                                        prop: 'drawChildLabel',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Draw the particles'
+                                        prop: 'drawChild',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Show all connections'
+                                        prop: 'drawEdge',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Draw the path'
+                                        prop: 'drawTrack',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Delete old particle'
+                                        prop: 'childKill',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Show tips on contracts'
+                                        prop: 'showTooltipOnContract',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Show tips on Clint / suppliers'
+                                        prop: 'showTooltipOnClient',
+                                        ns: visLayer._bh.setting
+                                    }
+                                    {
+                                        label: 'Show tips on Elements of legends'
+                                        prop: 'showTooltipOnLegend',
+                                        ns: visLayer._bh.setting
+                                    }
+                                ])
+                                .enter ()
+                                .append ( 'li')
+                                .html (function (d) {
+                                    return patternSetting
+                                        .replace ( '{{label}}', d.label)
+                                        .replace (/ \ {\ {id \} \} / g, d.prop + "_ch");
+                                })
+                                .selectAll ( 'input')
+                                .datum (function () {return this.parentNode .__ data__;})
+                                .attr ( "checked", initCheck)
+                                .on ( 'change', chChange)
+                        ;
+                    } ();
+
+
+                    visLayer._bh
+                            .on ( 'getGroupBy', function (d) {
+                                return d.date;
+                            })
+                            /*.on('getParent ', function (d) {
+                                var cont = rawData.contracts [d._id];
+                                return d.type? rawData.suppliers [cont.s]: rawData.customers [cont.c];
+                            }) * /
+                            .on ( 'getParentKey', function (d) {
+                                return d._id;
+                            })
+                            .on ( 'getChildKey', function (d) {
+                                return rawData.contracts [d._id] ._ id;
+                            })
+                            .on ( 'getCategoryKey', function (d) {
+                                return getCatKey (d);
+                            })
+                            .on ( 'getCategoryName', function (d) {
+                                return getCatName (d);
+                            })
+                            .on ( 'getParentLabel', function (d) {
+                                return d.name;
+                            })
+                            .on ( 'getChildLabel', function (d) {
+                                return d.nodeValue.label;
+                            })
+                            .on ( 'calcRightBound', function (l) {
+                                l = + l;
+
+                                var nl = l + stepDate;
+
+                                if (visLayer._bh.setting.skipEmptyDate) {
+
+                                    var ln = hashDate.length
+                                        , cur
+                                        ;
+                                    for (var i = leftHashBound; i <ln; i ++) {
+                                        cur = + hashDate [i];
+                                        if (nl <cur) {
+                                            nl = (cur + nl) / 2;
+                                            leftHashBound = i;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                return nl;
+                            })
+                            .on ( 'getVisibleByStep', function (d) {
+                                return true;
+                            })
+                            .on ( 'getCreateNearParent', function (d) {
+                                return true; //d.parentNode.nodeValue instanceof Customer;
+                            })
+                            .on ( 'getParentRadius', function (d) {
+                                return 1;
+                            })
+                            .on ( 'getChildRadius', function (d) {
+                                return sizes (+ d);
+                            })
+                            .on ( 'getValue', function (d) {
+                                return + d;
+                            })
+                            .on ( 'getParentPosition', function (d) {
+                                return [d.x, d.y];
+                            })
+                            .on ( 'getParentFixed', function (d) {
+                                return true;
+                            })
+                            .on ( 'finished', function () {
+                                stop ();
+                            })
+                            .on ( 'stopped', function () {
+                                stop ();
+                            })
+                            .on ( 'starting', function () {
+                            })
+                            .on ( 'started', function () {
+                                legendResize ();
+
+                                legend.bar.show ();
+                                hbar.bar.show ();
+                                yearLabel.html ( '');
+                                visLayer._reset ();
+                                yearLabel.classed ( 'parsing', false);
+                                waitParse.hide ();
+                                actions.buttons.play.hide ();
+                                actions.buttons.pause.show ();
+                                actions.buttons.stop.show ();
+                                actions.buttons.repeat.hide ();
+                            })
+                            .on ( 'processing', function (arr, l, r) {
+                                legend.legend.update ();
+
+                                var rb = new Date (+ r)
+                                    ;
+
+                                if (rb.getFullYear ()> rightDate.getFullYear () && maxDate.getFullYear ()> = rb.getFullYear ()) {
+
+                                    leftDate = new Date (+ rightDate);
+                                    rightDate.setFullYear (rightDate.getFullYear () + 1);
+
+                                    recreate (leftDate, rightDate);
+                                }
+
+                                hbar.hbar.inc (new Date (+ l), rb);
+
+                                yearLabel.html (dateFormat (new Date (l)));
+                                setTimeout (setMarkers (arr), 10);
+                            })
+                            .on ( 'parsing', function () {
+                                yearLabel.html ([
+                                    "Analysis ... <strong>",
+                                    curPos ++,
+                                    "</ Strong>",
+                                    "Of"
+                                    data.length
+                                ] .join ( ''));
+                            })
+                            //.on('processed ', prints)
+                            .on ( 'mouseovernode', function (d) {
+                                if (d.type) {
+                                    legend.legend
+                                            .selectCategory (d.category)
+                                    ;
+                                    visLayer._bh.setting.showTooltipOnContract
+                                        && Tooltip.mouseover (d);
+                                }
+                            })
+                            .on ( 'mouseoutnode', function () {
+                                legend.legend
+                                    .selectCategory (null)
+                                ;
+                                tooltip.mouseout (null);
+                            })
+                            .on ( 'mousemove', tooltip.mousemove)
+                            .sort (null)
+                    ;
+
+                    function setMarkers (arr) {
+                        return function () {
+                            arr.forEach (function (d) {
+                                var tp = d.parentNode.nodeValue;
+
+                                if (! parentMarker [tp._id]) {
+                                    var marker = parentMarker [tp._id] = L.marker (tp.latlng, {
+                                        icon: L.mapbox.marker.icon ({
+                                            'Marker-symbol': tp instanceof Supplier? 'Commercial': 'warehouse',
+                                            'Marker-color': '222234'
+                                        })
+                                        //, Title: tp.name + "\ n" + tp.address
+                                    });
+
+                                    marker .__ parentNode = d.parentNode;
+                                    marker.on ( 'mouseover', onMouseOverToMarker)
+                                        .on ( 'mousemove', onMouseMoveOnMarker)
+                                        .on ( 'mouseout', onMouseOutFromMarker)
+                                        .bindPopup (applyParentTemplate (tp))
+                                    ;
+                                    markers.addLayer (marker);
+                                }
+
+                                heat.addLatLng (tp.latlng);
+                            });
+                        }
+                    }
+
+                    function onMouseMoveOnMarker (e) {
+                        tooltip.mousemove (this .__ parentNode, 0, 0, e.originalEvent);
+                    }
+
+                    function onMouseOverToMarker (e) {
+                        visLayer._bh.setting.showTooltipOnClient
+                            && Tooltip.mouseover (this .__ parentNode, 0, 0, e.originalEvent);
+                        visLayer._bh.selectNode (this .__ parentNode);
+                    }
+
+                    function onMouseOutFromMarker (e) {
+                        tooltip.mouseout ();
+                        visLayer._bh.selectNode (null);
+                    }
+
+                    var waitParse = actions.bar.append ( 'a')
+                        .attr ( 'class', 'wait')
+                        .on ( 'click', function () {
+                            if (d3.event) {
+                                d3.event.stopPropagation ();
+                                d3.event.preventDefault ();
+                            }
+                        });
+
+                    waitParse.hide = actions.buttons.play.hide.bind (waitParse);
+                    waitParse.show = actions.buttons.play.show.bind (waitParse);
+                    waitParse.hide ();
+
+                    actions.buttons.play.on ( 'click', function () {
+                        if (visLayer._bh.IsPaused ()) {
+                            actions.buttons.pause.show ();
+                            actions.buttons.play.hide ();
+                            visLayer._bh.resume ();
+                        }
+                        else {
+                            actions.buttons.repeat.on ( 'click') ();
+                        }
+                    });
+
+                    actions.buttons.repeat.on ( 'click', function () {
+
+                        leftDate = new Date ( '2000-12-31');
+                        rightDate = new Date ( '2006-12-31');
+                        recreate (null, rightDate);
+
+                        curPos = 0;
+                        leftHashBound = 0;
+                        yearLabel.classed ( 'parsing', true);
+                        waitParse.show ();
+                        legend.bar.hide ();
+                        actions.buttons.repeat.hide ();
+                        actions.buttons.play.hide ();
+                        parentMarker = {};
+                        markers.clearLayers ();
+                        heat.setLatLngs ([]);
+                        visLayer.start (data);
+                    });
+
+                    actions.buttons.stop.on ( 'click', function () {
+                        visLayer._bh.stop ();
+                    });
+
+                    actions.buttons.pause.on ( 'click', function () {
+                        actions.buttons.pause.hide ();
+                        actions.buttons.play.show ();
+                        visLayer._bh.pause ();
+                    });
+
+                    actions.buttons.play.on ( 'click') ();
+
+                    d3.select (window) .on ( "focus", function () {
+                        if (window.hasOwnProperty ( "needPlayShow")) {
+                            if (window.needPlayShow)
+                                actions.buttons.play.on ( 'click') ();
+                            delete window.needPlayShow;
+                        }
+                    });
+
+                    d3.select (window) .on ( "blur", function () {
+                        if (window.hasOwnProperty ( "needPlayShow"))
+                            return;
+
+                        ! Window.needPlayShow = visLayer._bh.IsRun () && visLayer._bh.IsPaused ();
+                        if (window.needPlayShow)
+                            actions.buttons.pause.on ( 'click') ();
+                    });
+
+                    legend.bar.insert ( 'br', ': first-child');
+
+                    /IE/.test(window.navigator.userAgent)
+                        && Legend.bar.insert ( 'br', ': first-child');
+
+                    legend.bar.insert ( 'div', ': first-child')
+                            .attr ( 'class', 'leaflet-bar leaflet-control select-cat-bar')
+                            .each (function (div) {
+                                div = d3.select (this) .append ( 'div')
+                                    .attr ( 'class', 'leaflet-bar-part leaflet-bar-part-single')
+                                    ;
+                                div.append ( 'label')
+                                    .text ( 'Painting based on particles')
+                                    .attr ( 'for', 'select_cat')
+                                ;
+                                var sel = div.append ( 'select')
+                                    .attr ( 'id', 'select_cat');
+                                sel.selectAll ( 'option')
+                                    .data ([0, 1])
+                                    .enter ()
+                                    .append ( 'option')
+                                    .attr ( 'value', function (d) {return d;})
+                                    .text (function (d) {return d 'budget Level' 'service type';})
+                                    .attr ( 'selected', function (d) {return d "selected": null;!?})
+                                ;
+                                sel.on ( 'change', function () {
+                                    categoryType = this.options [this.selectedIndex] .__ data__;
+                                    changeCategories ();
+                                });
+                            })
+                    ;
+
+                    function getCatName (d) {
+                        return (? categoryType d.b: d.product [0] .OKDP) .name;
+                    }
+
+                    function getCatKey (d) {
+                        return (categoryType d.b: d.product [0] .OKDP?) .code;
+                    }
+
+
+                    function changeCategories () {
+                        var categories = d3.map ({})
+                            , CatMax = 0
+                            ;
+
+                        visLayer._bh.setting.categoryColors = categoryType? d3.scale.category20c (): d3.scale.category20 ();
+
+                        function Category (c, name) {
+                            var cat = categories.get (c);
+                            if (! cat) {
+                                cat = {
+                                    key: c,
+                                    name: name || c,
+                                    all: 0
+                                    currents: {},
+                                    values: {},
+                                    color: d3.rgb (visLayer._bh.setting.categoryColors (c)),
+                                    now: []
+                                };
+                                categories.set (c, cat);
+                            }
+                            return cat;
+                        }
+
+                        visLayer._bh.selectCategory (null);
+                        legend.legend.selectCategory (null);
+
+                        var run = visLayer._bh.IsRun () && visLayer._bh.IsPaused ()!;
+                        if (run)
+                            visLayer._bh.pause ();
+
+                        visLayer._bh.children (). values ​​(). forEach (function (d) {
+                            var n = d
+                                , Org = d.nodeValue
+                                , j
+                                ;
+
+                            n.category = Category (getCatKey (org), getCatName (org));
+
+                            n.color = n.category.color.toString ();
+                            n.d3color = d3.rgb (n.color);
+                            n.flashColor = d3.rgb (n.d3color.brighter () brighter ().);
+
+                            n.category.all ++;
+
+                            n.category.currents [d.date] = (n.category.currents [org.date] || 0);
+                            n.category.currents [d.date] ++;
+                            n.category.values ​​[ '_' + n.id] = + org;
+
+                            j = categories.values ​​(). reduce ((function (id) {return function (a, b) {
+                                return (a || 0) + (b.currents [id] || 0);
+                            }}) (Org.date), null);
+                            catMax = j> catMax? j: catMax;
+
+                            if (org.date <+ hashDate [leftHashBound])
+                                n.category.now.indexOf (org._id) <0
+                                    && N.category.now.push (org._id);
+                        });
+
+                        visLayer._bh.categories (categories);
+                        visLayer._bh.categoryMax (catMax);
+                        legend.legend.categories (categories);
+
+                        if (run)
+                            visLayer._bh.resume ();
+                    }
+                });
+            }
+        } ();
+    </ Script>
+</ Body>
+</ Html>
